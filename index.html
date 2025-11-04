@@ -92,5 +92,7 @@
     function detectTripleTap(){const now=performance.now();tapTimes.push(now);tapTimes=tapTimes.slice(-3);if(tapTimes.length===3&&(tapTimes[2]-tapTimes[0])<=900){endFlow();tapTimes=[];}}
     startBtn.addEventListener('click',start);tapArea.addEventListener('click',onTap);tapArea.addEventListener('touchstart',e=>{e.preventDefault();onTap();},{passive:!1});finishBtn.addEventListener('click',endFlow);
   </script>
+  <!-- force redeploy -->
+
 </body>
 </html>
