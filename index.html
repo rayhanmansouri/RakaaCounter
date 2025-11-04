@@ -67,7 +67,7 @@
           </p>
           <p class="hint">
             Pflichtgebete: Beim Start beginnt die Zahl bei 1. Jeder Tap irgendwo erhöht um 1. In der letzten Rakʿa erscheint ein kleiner „Fertig“-Button. Erst wenn du ihn drückst, endet die Ansicht.<br>
-            Sunnah: Zählt frei und startet bei 1. Beende durch dreifaches Tippen hintereinander.<br>
+            Sunnah: Zählt frei und startet bei 1. Beende über das kleine Kreuz oben rechts.<br>
             Dhikr: Zählt frei ab 0. Beende über das kleine Kreuz oben rechts, setze über das Pfeil-Symbol unten rechts auf 0 zurück.
           </p>
         </div>
@@ -86,7 +86,7 @@
   </section>
   <div class="toast" id="toast">
     <div class="toastBox" id="toastBox">
-      <div class="arabic">تَقَبَّلَ اللّٰهُ</div>
+      <div class="arabic">ذِكْرٌ مَقْبُولٌ إِنْ شَاءَ ٱللّٰهُ</div>
       <div class="hint" style="margin-top:8px">Zum Schließen außerhalb tippen</div>
     </div>
   </div>
@@ -97,7 +97,7 @@
       });
     }
    const home=document.getElementById('home'),counter=document.getElementById('counter'),countDisplay=document.getElementById('countDisplay'),countSub=document.getElementById('countSub'),tapArea=document.getElementById('tapArea'),finishBtn=document.getElementById('finishBtn'),modeBadge=document.getElementById('modeBadge'),closeDhikrBtn=document.getElementById('closeDhikrBtn'),resetDhikrBtn=document.getElementById('resetDhikrBtn'),select=document.getElementById('prayer'),startBtn=document.getElementById('startBtn'),installBtn=document.getElementById('installBtn'),installHint=document.getElementById('installHint'),toast=document.getElementById('toast'),toastBox=document.getElementById('toastBox');
-    let mode='fixed',label='Dhuhr',maxRak=4,count=1,startValue=1,tapTimes=[],deferredPrompt=null;
+    let mode='fixed',label='Dhuhr',maxRak=4,count=1,startValue=1,deferredPrompt=null;
     const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
     if(installBtn){
       if(standalone){
@@ -130,11 +130,10 @@
         if(installHint)installHint.hidden=true;
       });
     }
-    function start(){const[valueMode,lbl,nStr,startStr]=select.value.split('|');mode=valueMode;label=lbl;maxRak=parseInt(nStr,10);startValue=parseInt(startStr,10);count=startValue;tapTimes=[];render();home.style.display='none';counter.style.display='block';finishBtn.style.display='none';modeBadge.textContent=mode==='fixed'?label+' • '+maxRak+' Rakʿāt':label;}
+    function start(){const[valueMode,lbl,nStr,startStr]=select.value.split('|');mode=valueMode;label=lbl;maxRak=parseInt(nStr,10);startValue=parseInt(startStr,10);count=startValue;render();home.style.display='none';counter.style.display='block';finishBtn.style.display='none';modeBadge.textContent=mode==='fixed'?label+' • '+maxRak+' Rakʿāt':label;}
     function endFlow(){toast.style.display='flex';const close=e=>{if(!toastBox.contains(e.target)){toast.style.display='none';counter.style.display='none';home.style.display='block';document.removeEventListener('click',close,!0);document.removeEventListener('touchstart',close,!0);}};setTimeout(()=>{document.addEventListener('click',close,!0);document.addEventListener('touchstart',close,!0);},50);}
-    function render(){countDisplay.firstChild.nodeValue=String(count);countSub.textContent=mode==='fixed'?`von ${maxRak}`:mode==='sunnah'?'Sunnah Zähler':'Dhikr Zähler';const showFinish=mode==='fixed'&&count>=maxRak;finishBtn.style.display=showFinish?'inline-block':'none';tapArea.style.pointerEvents=showFinish?'none':'auto';closeDhikrBtn.style.display=mode==='dhikr'?'flex':'none';resetDhikrBtn.style.display=mode==='dhikr'?'flex':'none';}
-    function onTap(){if(mode==='fixed'){if(count<maxRak){count++;render();}}else{count++;render();if(mode==='sunnah'){detectTripleTap();}}}
-    function detectTripleTap(){if(mode!=='sunnah')return;const now=performance.now();tapTimes.push(now);tapTimes=tapTimes.slice(-3);if(tapTimes.length===3&&(tapTimes[2]-tapTimes[0])<=900){endFlow();tapTimes=[];}}
+    function render(){countDisplay.firstChild.nodeValue=String(count);countSub.textContent=mode==='fixed'?`von ${maxRak}`:mode==='sunnah'?'Sunnah Zähler':'Dhikr Zähler';const showFinish=mode==='fixed'&&count>=maxRak;finishBtn.style.display=showFinish?'inline-block':'none';tapArea.style.pointerEvents=showFinish?'none':'auto';const showClose=mode==='dhikr'||mode==='sunnah';closeDhikrBtn.style.display=showClose?'flex':'none';resetDhikrBtn.style.display=mode==='dhikr'?'flex':'none';}
+    function onTap(){if(mode==='fixed'){if(count<maxRak){count++;render();}}else{count++;render();}}
     function resetDhikr(){if(mode!=='dhikr')return;count=startValue;render();}
     startBtn.addEventListener('click',start);tapArea.addEventListener('click',onTap);tapArea.addEventListener('touchstart',e=>{e.preventDefault();onTap();},{passive:!1});finishBtn.addEventListener('click',endFlow);closeDhikrBtn.addEventListener('click',endFlow);resetDhikrBtn.addEventListener('click',resetDhikr);
   </script>
