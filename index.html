@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d12" />
+  <title>Rakʿa Counter</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    :root{
+      --bg:#0b0d12; --panel:#121821; --ink:#eaf0f6; --muted:#a7b0bb; --accent:#4bd18a; --ring:rgba(75,209,138,.3);
+    }
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Noto Sans",sans-serif}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:20px}
+    .card{width:min(720px,92vw);background:var(--panel);border:1px solid #1e2632;border-radius:18px;box-shadow:0 8px 28px rgba(0,0,0,.45)}
+    header{padding:16px 18px;border-bottom:1px solid #1e2632;display:flex;justify-content:space-between;align-items:center}
+    h1{font-size:18px;margin:0}
+    .body{padding:18px}
+    .grid{display:grid;gap:10px}
+    .row{display:flex;flex-wrap:wrap;gap:10px}
+    .btn{appearance:none;border:1px solid #2a3748;background:#0f141c;color:var(--ink);padding:12px 14px;border-radius:12px;cursor:pointer}
+    .btn:hover{border-color:#38506a}
+    .btn-accent{background:var(--accent);border-color:#2b6448;color:#04130b;font-weight:700}
+    .select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a3748;background:#0f141c;color:var(--ink);outline:none}
+    .select:focus{border-color:var(--accent);box-shadow:0 0 0 6px var(--ring)}
+    .hint{color:var(--muted);font-size:13px;margin-top:8px}
+    .counterView{position:fixed;inset:0;background:#0b0d12;display:none}
+    .counterTap{position:absolute;inset:0}
+    .count{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(80px + 10vw);font-weight:800;letter-spacing:.02em;user-select:none}
+    .count small{display:block;font-size:14px;color:var(--muted);font-weight:500;margin-top:8px;text-align:center}
+    .finishBar{position:absolute;left:0;right:0;bottom:14px;display:grid;place-items:center}
+    .finishBtn{display:none;min-width:120px}
+    .toast{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);backdrop-filter:blur(2px)}
+    .toastBox{background:var(--panel);border:1px solid #273346;border-radius:16px;padding:26px 20px;min-width:min(420px,85vw);text-align:center}
+    .arabic{font-family: "Noto Naskh Arabic", serif; font-size:38px;}
+    @media (max-width:480px){ .arabic{font-size:32px} }
+    .badge{position:absolute;top:10px;right:12px;font-size:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card" id="home">
+      <header><h1>Rakʿa Counter</h1></header>
+      <div class="body">
+        <div class="grid">
+          <label for="prayer">Gebet wählen</label>
+          <select id="prayer" class="select">
+            <option value="Fajr|2">Fajr – 2</option>
+            <option value="Dhuhr|4">Dhuhr – 4</option>
+            <option value="ʿAsr|4">ʿAsr – 4</option>
+            <option value="Maghrib|3">Maghrib – 3</option>
+            <option value="ʿIshāʾ|4">ʿIshāʾ – 4</option>
+            <option value="Freier Modus|0">Freier Modus (Sunnah / Dhikr)</option>
+          </select>
+          <div class="row">
+            <button id="startBtn" class="btn btn-accent">Start</button>
+          </div>
+          <p class="hint">
+            Pflichtgebete: Beim Start beginnt die Zahl bei 1. Jeder Tap irgendwo erhöht um 1. In der letzten Rakʿa erscheint ein kleiner „Fertig“-Button. Erst wenn du ihn drückst, endet die Ansicht.<br>
+            Freier Modus: Zählt frei. Beenden durch dreifaches Tippen hintereinander.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <section class="counterView" id="counter">
+    <div class="badge" id="modeBadge"></div>
+    <div class="count" id="countDisplay">1<small id="countSub"></small></div>
+    <div class="finishBar">
+      <button id="finishBtn" class="btn finishBtn">Fertig</button>
+    </div>
+    <div class="counterTap" id="tapArea" aria-label="Tap überall zum Zählen"></div>
+  </section>
+  <div class="toast" id="toast">
+    <div class="toastBox" id="toastBox">
+      <div class="arabic">تَقَبَّلَ اللّٰهُ</div>
+      <div class="hint" style="margin-top:8px">Zum Schließen außerhalb tippen</div>
+    </div>
+  </div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(console.error);
+      });
+    }
+    const home=document.getElementById('home'),counter=document.getElementById('counter'),countDisplay=document.getElementById('countDisplay'),countSub=document.getElementById('countSub'),tapArea=document.getElementById('tapArea'),finishBtn=document.getElementById('finishBtn'),modeBadge=document.getElementById('modeBadge'),select=document.getElementById('prayer'),startBtn=document.getElementById('startBtn'),toast=document.getElementById('toast'),toastBox=document.getElementById('toastBox');
+    let mode='fixed',label='Dhuhr',maxRak=4,count=1,tapTimes=[];
+    function start(){const[lbl,nStr]=select.value.split('|');label=lbl;maxRak=parseInt(nStr,10);mode=maxRak===0?'free':'fixed';count=1;render();home.style.display='none';counter.style.display='block';finishBtn.style.display='none';modeBadge.textContent=mode==='free'?'Freier Modus':label+' • '+maxRak+' Rakʿāt';}
+    function endFlow(){toast.style.display='flex';const close=e=>{if(!toastBox.contains(e.target)){toast.style.display='none';counter.style.display='none';home.style.display='block';document.removeEventListener('click',close,!0);document.removeEventListener('touchstart',close,!0);}};setTimeout(()=>{document.addEventListener('click',close,!0);document.addEventListener('touchstart',close,!0);},50);}
+    function render(){countDisplay.firstChild.nodeValue=String(count);countSub.textContent=mode==='fixed'?`von ${maxRak}`:'Freier Zähler';finishBtn.style.display=mode==='fixed'&&count>=maxRak?'inline-block':'none';}
+    function onTap(){if(mode==='fixed'){if(count<maxRak){count++;render();}}else{count++;render();detectTripleTap();}}
+    function detectTripleTap(){const now=performance.now();tapTimes.push(now);tapTimes=tapTimes.slice(-3);if(tapTimes.length===3&&(tapTimes[2]-tapTimes[0])<=900){endFlow();tapTimes=[];}}
+    startBtn.addEventListener('click',start);tapArea.addEventListener('click',onTap);tapArea.addEventListener('touchstart',e=>{e.preventDefault();onTap();},{passive:!1});finishBtn.addEventListener('click',endFlow);
+  </script>
+</body>
+</html>
