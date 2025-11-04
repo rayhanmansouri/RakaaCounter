@@ -18,6 +18,7 @@
     .body{padding:18px}
     .grid{display:grid;gap:10px}
     .row{display:flex;flex-wrap:wrap;gap:10px}
+    .installBtn{display:none}
     .btn{appearance:none;border:1px solid #2a3748;background:#0f141c;color:var(--ink);padding:12px 14px;border-radius:12px;cursor:pointer}
     .btn:hover{border-color:#38506a}
     .btn-accent{background:var(--accent);border-color:#2b6448;color:#04130b;font-weight:700}
@@ -30,11 +31,15 @@
     .count small{display:block;font-size:14px;color:var(--muted);font-weight:500;margin-top:8px;text-align:center}
     .finishBar{position:absolute;left:0;right:0;bottom:14px;display:grid;place-items:center;z-index:1}
     .finishBtn{display:none;min-width:120px}
+    .iconBtn{position:absolute;display:none;width:46px;height:46px;border-radius:50%;border:1px solid rgba(234,240,246,.2);background:rgba(16,22,30,.9);color:var(--ink);font-size:24px;line-height:1;align-items:center;justify-content:center;cursor:pointer;z-index:2;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+    .iconBtn:active{transform:scale(.96)}
+    .closeBtn{top:12px;right:14px}
+    .resetBtn{bottom:18px;right:18px;font-size:22px}
     .toast{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);backdrop-filter:blur(2px)}
     .toastBox{background:var(--panel);border:1px solid #273346;border-radius:16px;padding:26px 20px;min-width:min(420px,85vw);text-align:center}
     .arabic{font-family: "Noto Naskh Arabic", serif; font-size:38px;}
     @media (max-width:480px){ .arabic{font-size:32px} }
-    .badge{position:absolute;top:10px;right:12px;font-size:12px;color:var(--muted)}
+    .badge{position:absolute;top:10px;left:12px;font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
@@ -45,19 +50,25 @@
         <div class="grid">
           <label for="prayer">Gebet wählen</label>
           <select id="prayer" class="select">
-            <option value="Fajr|2">Fajr – 2</option>
-            <option value="Dhuhr|4">Dhuhr – 4</option>
-            <option value="ʿAsr|4">ʿAsr – 4</option>
-            <option value="Maghrib|3">Maghrib – 3</option>
-            <option value="ʿIshāʾ|4">ʿIshāʾ – 4</option>
-            <option value="Freier Modus|0">Freier Modus (Sunnah / Dhikr)</option>
+            <option value="fixed|Fajr|2|1">Fajr – 2</option>
+            <option value="fixed|Dhuhr|4|1">Dhuhr – 4</option>
+            <option value="fixed|ʿAsr|4|1">ʿAsr – 4</option>
+            <option value="fixed|Maghrib|3|1">Maghrib – 3</option>
+            <option value="fixed|ʿIshāʾ|4|1">ʿIshāʾ – 4</option>
+            <option value="sunnah|Sunnah|0|1">Sunnah</option>
+            <option value="dhikr|Dhikr|0|0">Dhikr</option>
           </select>
           <div class="row">
             <button id="startBtn" class="btn btn-accent">Start</button>
+            <button id="installBtn" class="btn installBtn">Aufs Gerät installieren</button>
           </div>
+           <p class="hint" id="installHint" hidden>
+            Öffne das Browser-Menü (<strong>Teilen</strong>/<strong>Zum Startbildschirm hinzufügen</strong>) um die App auf dem Gerät zu speichern.
+          </p>
           <p class="hint">
             Pflichtgebete: Beim Start beginnt die Zahl bei 1. Jeder Tap irgendwo erhöht um 1. In der letzten Rakʿa erscheint ein kleiner „Fertig“-Button. Erst wenn du ihn drückst, endet die Ansicht.<br>
-            Freier Modus: Zählt frei. Beenden durch dreifaches Tippen hintereinander.
+            Sunnah: Zählt frei und startet bei 1. Beende durch dreifaches Tippen hintereinander.<br>
+            Dhikr: Zählt frei ab 0. Beende über das kleine Kreuz oben rechts, setze über das Pfeil-Symbol unten rechts auf 0 zurück.
           </p>
         </div>
       </div>
@@ -65,6 +76,8 @@
   </div>
   <section class="counterView" id="counter">
     <div class="badge" id="modeBadge"></div>
+    <button id="closeDhikrBtn" class="iconBtn closeBtn" aria-label="Modus beenden">&times;</button>
+    <button id="resetDhikrBtn" class="iconBtn resetBtn" aria-label="Zähler zurücksetzen">&#8635;</button>
     <div class="count" id="countDisplay">1<small id="countSub"></small></div>
     <div class="finishBar">
       <button id="finishBtn" class="btn finishBtn">Fertig</button>
@@ -83,14 +96,115 @@
         navigator.serviceWorker.register('./service-worker.js').catch(console.error);
       });
     }
-    const home=document.getElementById('home'),counter=document.getElementById('counter'),countDisplay=document.getElementById('countDisplay'),countSub=document.getElementById('countSub'),tapArea=document.getElementById('tapArea'),finishBtn=document.getElementById('finishBtn'),modeBadge=document.getElementById('modeBadge'),select=document.getElementById('prayer'),startBtn=document.getElementById('startBtn'),toast=document.getElementById('toast'),toastBox=document.getElementById('toastBox');
-    let mode='fixed',label='Dhuhr',maxRak=4,count=1,tapTimes=[];
-    function start(){const[lbl,nStr]=select.value.split('|');label=lbl;maxRak=parseInt(nStr,10);mode=maxRak===0?'free':'fixed';count=1;render();home.style.display='none';counter.style.display='block';finishBtn.style.display='none';modeBadge.textContent=mode==='free'?'Freier Modus':label+' • '+maxRak+' Rakʿāt';}
+   const home=document.getElementById('home'),counter=document.getElementById('counter'),countDisplay=document.getElementById('countDisplay'),countSub=document.getElementById('countSub'),tapArea=document.getElementById('tapArea'),finishBtn=document.getElementById('finishBtn'),modeBadge=document.getElementById('modeBadge'),closeDhikrBtn=document.getElementById('closeDhikrBtn'),resetDhikrBtn=document.getElementById('resetDhikrBtn'),select=document.getElementById('prayer'),startBtn=document.getElementById('startBtn'),installBtn=document.getElementById('installBtn'),installHint=document.getElementById('installHint'),toast=document.getElementById('toast'),toastBox=document.getElementById('toastBox');
+    let mode='fixed',label='Dhuhr',maxRak=4,count=1,startValue=1,tapTimes=[],deferredPrompt=null;
+    const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+    if(installBtn){
+      if(standalone){
+        installBtn.style.display='none';
+        if(installHint)installHint.hidden=true;
+      }else{
+        const isiOS=/iphone|ipad|ipod/i.test(window.navigator.userAgent||'');
+        if(isiOS&&installHint)installHint.hidden=false;
+      }
+      window.addEventListener('beforeinstallprompt',e=>{
+        e.preventDefault();
+        deferredPrompt=e;
+        installBtn.style.display='inline-flex';
+        installBtn.disabled=false;
+        if(installHint)installHint.hidden=true;
+      });
+      installBtn.addEventListener('click',async()=>{
+        if(!deferredPrompt)return;
+        installBtn.disabled=true;
+        deferredPrompt.prompt();
+        try{await deferredPrompt.userChoice;}finally{
+          deferredPrompt=null;
+          installBtn.disabled=false;
+          installBtn.style.display='none';
+        }
+      });
+      window.addEventListener('appinstalled',()=>{
+        deferredPrompt=null;
+        installBtn.style.display='none';
+        if(installHint)installHint.hidden=true;
+      });
+    }
+    const home=document.getElementById('home'),counter=document.getElementById('counter'),countDisplay=document.getElementById('countDisplay'),countSub=document.getElementById('countSub'),tapArea=document.getElementById('tapArea'),finishBtn=document.getElementById('finishBtn'),modeBadge=document.getElementById('modeBadge'),closeDhikrBtn=document.getElementById('closeDhikrBtn'),resetDhikrBtn=document.getElementById('resetDhikrBtn'),select=document.getElementById('prayer'),startBtn=document.getElementById('startBtn'),installBtn=document.getElementById('installBtn'),installHint=document.getElementById('installHint'),toast=document.getElementById('toast'),toastBox=document.getElementById('toastBox');
+    let mode='fixed',label='Dhuhr',maxRak=4,count=1,startValue=1,tapTimes=[],deferredPrompt=null;
+    const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+    if(installBtn){
+      if(standalone){
+        installBtn.style.display='none';
+        if(installHint)installHint.hidden=true;
+      }else{
+        const isiOS=/iphone|ipad|ipod/i.test(window.navigator.userAgent||'');
+        if(isiOS&&installHint)installHint.hidden=false;
+      }
+      window.addEventListener('beforeinstallprompt',e=>{
+        e.preventDefault();
+        deferredPrompt=e;
+        installBtn.style.display='inline-flex';
+        installBtn.disabled=false;
+        if(installHint)installHint.hidden=true;
+      });
+      installBtn.addEventListener('click',async()=>{
+        if(!deferredPrompt)return;
+        installBtn.disabled=true;
+        deferredPrompt.prompt();
+        try{await deferredPrompt.userChoice;}finally{
+          deferredPrompt=null;
+          installBtn.disabled=false;
+          installBtn.style.display='none';
+        }
+      });
+      window.addEventListener('appinstalled',()=>{
+        deferredPrompt=null;
+        installBtn.style.display='none';
+        if(installHint)installHint.hidden=true;
+      });
+    }
+    const home=document.getElementById('home'),counter=document.getElementById('counter'),countDisplay=document.getElementById('countDisplay'),countSub=document.getElementById('countSub'),tapArea=document.getElementById('tapArea'),finishBtn=document.getElementById('finishBtn'),modeBadge=document.getElementById('modeBadge'),closeDhikrBtn=document.getElementById('closeDhikrBtn'),resetDhikrBtn=document.getElementById('resetDhikrBtn'),select=document.getElementById('prayer'),startBtn=document.getElementById('startBtn'),installBtn=document.getElementById('installBtn'),installHint=document.getElementById('installHint'),toast=document.getElementById('toast'),toastBox=document.getElementById('toastBox');
+    let mode='fixed',label='Dhuhr',maxRak=4,count=1,startValue=1,tapTimes=[],deferredPrompt=null;
+    const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+    if(installBtn){
+      if(standalone){
+        installBtn.style.display='none';
+        if(installHint)installHint.hidden=true;
+      }else{
+        const isiOS=/iphone|ipad|ipod/i.test(window.navigator.userAgent||'');
+        if(isiOS&&installHint)installHint.hidden=false;
+      }
+      window.addEventListener('beforeinstallprompt',e=>{
+        e.preventDefault();
+        deferredPrompt=e;
+        installBtn.style.display='inline-flex';
+        installBtn.disabled=false;
+        if(installHint)installHint.hidden=true;
+      });
+      installBtn.addEventListener('click',async()=>{
+        if(!deferredPrompt)return;
+        installBtn.disabled=true;
+        deferredPrompt.prompt();
+        try{await deferredPrompt.userChoice;}finally{
+          deferredPrompt=null;
+          installBtn.disabled=false;
+          installBtn.style.display='none';
+        }
+      });
+      window.addEventListener('appinstalled',()=>{
+        deferredPrompt=null;
+        installBtn.style.display='none';
+        if(installHint)installHint.hidden=true;
+      });
+    }
+    function start(){const[valueMode,lbl,nStr,startStr]=select.value.split('|');mode=valueMode;label=lbl;maxRak=parseInt(nStr,10);startValue=parseInt(startStr,10);count=startValue;tapTimes=[];render();home.style.display='none';counter.style.display='block';finishBtn.style.display='none';modeBadge.textContent=mode==='fixed'?label+' • '+maxRak+' Rakʿāt':label;}
     function endFlow(){toast.style.display='flex';const close=e=>{if(!toastBox.contains(e.target)){toast.style.display='none';counter.style.display='none';home.style.display='block';document.removeEventListener('click',close,!0);document.removeEventListener('touchstart',close,!0);}};setTimeout(()=>{document.addEventListener('click',close,!0);document.addEventListener('touchstart',close,!0);},50);}
-    function render(){countDisplay.firstChild.nodeValue=String(count);countSub.textContent=mode==='fixed'?`von ${maxRak}`:'Freier Zähler';const showFinish=mode==='fixed'&&count>=maxRak;finishBtn.style.display=showFinish?'inline-block':'none';tapArea.style.pointerEvents=showFinish?'none':'auto';}
-    function onTap(){if(mode==='fixed'){if(count<maxRak){count++;render();}}else{count++;render();detectTripleTap();}}
-    function detectTripleTap(){const now=performance.now();tapTimes.push(now);tapTimes=tapTimes.slice(-3);if(tapTimes.length===3&&(tapTimes[2]-tapTimes[0])<=900){endFlow();tapTimes=[];}}
-    startBtn.addEventListener('click',start);tapArea.addEventListener('click',onTap);tapArea.addEventListener('touchstart',e=>{e.preventDefault();onTap();},{passive:!1});finishBtn.addEventListener('click',endFlow);
+    function render(){countDisplay.firstChild.nodeValue=String(count);countSub.textContent=mode==='fixed'?`von ${maxRak}`:mode==='sunnah'?'Sunnah Zähler':'Dhikr Zähler';const showFinish=mode==='fixed'&&count>=maxRak;finishBtn.style.display=showFinish?'inline-block':'none';tapArea.style.pointerEvents=showFinish?'none':'auto';closeDhikrBtn.style.display=mode==='dhikr'?'flex':'none';resetDhikrBtn.style.display=mode==='dhikr'?'flex':'none';}
+    function onTap(){if(mode==='fixed'){if(count<maxRak){count++;render();}}else{count++;render();if(mode==='sunnah'){detectTripleTap();}}}
+    function detectTripleTap(){if(mode!=='sunnah')return;const now=performance.now();tapTimes.push(now);tapTimes=tapTimes.slice(-3);if(tapTimes.length===3&&(tapTimes[2]-tapTimes[0])<=900){endFlow();tapTimes=[];}}
+    function resetDhikr(){if(mode!=='dhikr')return;count=startValue;render();}
+    startBtn.addEventListener('click',start);tapArea.addEventListener('click',onTap);tapArea.addEventListener('touchstart',e=>{e.preventDefault();onTap();},{passive:!1});finishBtn.addEventListener('click',endFlow);closeDhikrBtn.addEventListener('click',endFlow);resetDhikrBtn.addEventListener('click',resetDhikr);
   </script>
   <!-- force redeploy -->
 
